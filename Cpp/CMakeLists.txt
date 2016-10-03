@@ -7,7 +7,7 @@ cmake_policy(SET CMP0012 NEW)
 #message(STATUS ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -ggdb ")
 
-find_package( OpenCV 2.4 REQUIRED )
+find_package( OpenCV 3.1 REQUIRED )
 find_package( Qt5Core REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(Boost COMPONENTS system thread filesystem)
@@ -47,7 +47,7 @@ add_subdirectory(Scheduler)
 
 include_directories("${BASEPATH}" ${CUDA_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -gencode arch=compute_30,code=sm_30; -gencode arch=compute_35,code=sm_35;--use_fast_math ;--restrict; -lineinfo; -O3)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -gencode arch=compute_52,code=sm_52; --use_fast_math ;--restrict; -lineinfo; -O3)
 cuda_add_library(OpenDTAM SHARED ${DTAM_SOURCES} OpenDTAM.cpp)
 target_link_libraries(OpenDTAM ${OpenCV_LIBS})
 add_executable (a.out testprog.cpp convertAhandaPovRayToStandard.cpp graphics.cpp fileLoader.cpp)
