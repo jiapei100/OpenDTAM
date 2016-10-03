@@ -2,7 +2,7 @@
 #define OPENDTAM_HPP
 
 #include <opencv2/core/core.hpp>
-#include <opencv2/gpu/gpu.hpp>
+#include <opencv2/core/cuda.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <queue>
 #include <list>
@@ -36,31 +36,29 @@
 
 
 
-using namespace cv;
-using namespace std;
-using namespace cv::gpu;
+using namespace cv::cuda;
 class OpenDTAM{
     int rows,cols;
-    Mat cameraMatrix;
+    cv::Mat cameraMatrix;
     int utrkLevel2DStart,utrkLevel2DEnd;
     int utrkLevel3DStart,utrkLevel3DEnd;
     int mtrkLevel3DStart,mtrkLevel3DEnd;
     int pyrLevels;
-    Size ucvSize;
-    vector<Mat> cameraMatrixPyr;
+    cv::Size ucvSize;
+    std::vector<cv::Mat> cameraMatrixPyr;
 
-    StallableSynchronizedStack<Ptr<Frame> > fs;//the frame stream
-    StallableSynchronizedQueue<Ptr<Frame> > utrkq;//frames needing fast tracking
-    StallableSynchronizedStack<Ptr<Frame> > utrkd;//frames that have been tracked at rough level
-    StallableSynchronizedQueue<Ptr<Frame> > mtrkq;//frames needing fine tracking
-    StallableSynchronizedStack<Ptr<Frame> > mtrkd;//frames that have been tracked at fine level
-    StallableSynchronizedStack<Ptr<Frame> > trkd; //frames that have been tracked at all levels
+    StallableSynchronizedStack<cv::Ptr<Frame> > fs;//the frame stream
+    StallableSynchronizedQueue<cv::Ptr<Frame> > utrkq;//frames needing fast tracking
+    StallableSynchronizedStack<cv::Ptr<Frame> > utrkd;//frames that have been tracked at rough level
+    StallableSynchronizedQueue<cv::Ptr<Frame> > mtrkq;//frames needing fine tracking
+    StallableSynchronizedStack<cv::Ptr<Frame> > mtrkd;//frames that have been tracked at fine level
+    StallableSynchronizedStack<cv::Ptr<Frame> > trkd; //frames that have been tracked at all levels
 
-    StallableSynchronizedQueue<std::pair<Ptr<Frame>,std::vector<Ptr<Frame> > > > ucvq; //frames to convert to low quality cost volumes ("micro cv's")
-    StallableSynchronizedQueue<std::pair<Ptr<Frame>,std::vector<Ptr<Frame> > > > mcvq; //frames to convert to high quality cost volumes ("macro cv's")
-    StallableSynchronizedStack<Ptr<Frame> > ucvd;// frames with micro cv's (stack)
-    StallableSynchronizedStack<Ptr<Frame> > mcvd;//frames with macro cv's (stack)
-    StallableSynchronizedStack<Ptr<Frame> > cvd; //frames with all cv's  (stack)
+    StallableSynchronizedQueue<std::pair<cv::Ptr<Frame>,std::vector<cv::Ptr<Frame> > > > ucvq; //frames to convert to low quality cost volumes ("micro cv's")
+    StallableSynchronizedQueue<std::pair<cv::Ptr<Frame>,std::vector<cv::Ptr<Frame> > > > mcvq; //frames to convert to high quality cost volumes ("macro cv's")
+    StallableSynchronizedStack<cv::Ptr<Frame> > ucvd;// frames with micro cv's (stack)
+    StallableSynchronizedStack<cv::Ptr<Frame> > mcvd;//frames with macro cv's (stack)
+    StallableSynchronizedStack<cv::Ptr<Frame> > cvd; //frames with all cv's  (stack)
     int Ttrkid;
     int Tutrkid;
    
@@ -70,7 +68,7 @@ class OpenDTAM{
     bool initd;
     public:
         
-    OpenDTAM(Mat cameraMatrix):
+    OpenDTAM(cv::Mat cameraMatrix):
         rows(0),
         cols(0),
         cameraMatrix(cameraMatrix),
@@ -98,7 +96,7 @@ class OpenDTAM{
     }
     
     //Non-default parameters should be set before calling init!
-    void init(const Mat& image){
+    void init(const cv::Mat& image){
         
         
         //Determine size of frame
@@ -120,26 +118,26 @@ class OpenDTAM{
         {
             cameraMatrixPyr.reserve(pyrLevels);
             for(int i=0;i<pyrLevels;i++){
-                cameraMatrixPyr.push_back(Mat());
+                cameraMatrixPyr.push_back(cv::Mat());
             }
             //Figure out camera matrices for each level
             for (double scale=1.0,l2=pyrLevels-1; l2>=0; scale/=2, l2--) {
-                Mat cameraMatrix2=cameraMatrix.clone();
+                cv::Mat cameraMatrix2=cameraMatrix.clone();
                 cameraMatrix2(Range(0,2),Range(2,3))+=.5;
                 cameraMatrix2(Range(0,2),Range(0,3))*= scale;
                 cameraMatrix2(Range(0,2),Range(2,3))-=.5;
                 cameraMatrixPyr[l2]=cameraMatrix2;
             }
         }
-        ucvSize=Size(128,96);
+        ucvSize=cv::Size(128,96);
         
         Tutrkid=ImplThreadLauncher<OpenDTAM>::startThread(*this,&OpenDTAM::Tutrk,"uTrack",3);
     }
     
 
     
-    typedef Ptr<Frame> Fp;
-    FrameID addFrameWithPose(const Mat& image, const Mat& R, const Mat& T){
+    typedef cv::Ptr<Frame> Fp;
+    FrameID addFrameWithPose(const cv::Mat& image, const cv::Mat& R, const cv::Mat& T){
         if(!initd){
             init(image);
             initd=1;
@@ -155,8 +153,8 @@ class OpenDTAM{
             //Fill known fields
             {
                 tmp.fid=fid; 
-                tmp.im=new Mat(image);
-                tmp.gray=new Mat();
+                tmp.im=new cv::Mat(image);
+                tmp.gray=new cv::Mat();
                 cvtColor(image, *(tmp.gray),CV_BGR2GRAY); 
                 tmp.R=R.clone(); 
                 tmp.T=T.clone(); 
@@ -170,7 +168,7 @@ class OpenDTAM{
         
         
         //Construct pyramid
-        newFp->pyramid = new vector<Mat>;
+        newFp->pyramid = new std::vector<cv::Mat>;
         createPyramid(*newFp->gray,*newFp->pyramid,pyrLevels);
         
         //Add frame to appropriate queues (last because exposes frame to other code)
@@ -183,7 +181,7 @@ class OpenDTAM{
         }
     }
 
-    FrameID addFrame(Mat image){
+    FrameID addFrame(cv::Mat image){
         if(!initd||fn<2){
             CV_Error(CV_StsAssert, "OpenDTAM not inited properly (Did you add two posed frames yet?) before calling addFrame.");
         }
@@ -197,15 +195,15 @@ class OpenDTAM{
             //Fill known fields
             {
                 tmp.fid=fid; 
-                tmp.im=new Mat(image);
-                tmp.gray=new Mat();
+                tmp.im=new cv::Mat(image);
+                tmp.gray=new cv::Mat();
                 cvtColor(image, *tmp.gray,CV_BGR2GRAY); 
             }
             *newFp = tmp;
         }
         
         //Construct pyramid
-        newFp->pyramid = new vector<Mat>;
+        newFp->pyramid = new std::vector<cv::Mat>;
         createPyramid(*newFp->gray,*newFp->pyramid,pyrLevels);
         
         //Add frame to appropriate queues (last because exposes frame to other code)
@@ -216,15 +214,15 @@ class OpenDTAM{
         }
     }
 
-    void createPyramid(const Mat& image,vector<Mat>& pyramid,int& levels){
-        Mat in=image;
+    void createPyramid(const cv::Mat& image,std::vector<cv::Mat>& pyramid,int& levels){
+        cv::Mat in=image;
         int l2=levels-1;
         pyramid.resize(levels);
         pyramid[l2--]=in;
         
         for (float scale=0.5; l2>=0; scale/=2, l2--) {
-            Mat out;
-            resize(in,out,Size(),.5,.5,CV_INTER_AREA);
+            cv::Mat out;
+            cv::resize(in,out,cv::Size(),.5,.5,CV_INTER_AREA);
             pyramid[l2]=out;
             in=out;
         }
@@ -232,11 +230,11 @@ class OpenDTAM{
     }
     
 
-bool utrk(Ptr<Frame> _frame){
+bool utrk(cv::Ptr<Frame> _frame){
     Frame& frame=*_frame;
     
     //Find the last frame before this one
-    Ptr<Frame> lfp;
+    cv::Ptr<Frame> lfp;
     {//try for previous frame, if that doesn't work, use last utrkd frame 
         {
         ScopeLock s(fs.mutex);
@@ -252,7 +250,7 @@ bool utrk(Ptr<Frame> _frame){
     Frame & lf = *lfp;
     
     // Find a depth map to track from
-    Ptr<Frame> basep;
+    cv::Ptr<Frame> basep;
     {
         ScopeLock s(ucvd.mutex);
         if(ucvd.q.size()==0){//no ucv yet! might be at init
@@ -263,19 +261,19 @@ bool utrk(Ptr<Frame> _frame){
     }
     Frame & base = *basep;
     
-    Mat p2d=Mat::zeros(1,6,CV_64FC1);
+    cv::Mat p2d=cv::Mat::zeros(1,6,CV_64FC1);
     
     //Do 2D tracking
-    static Mat Z(lf.im->rows,lf.im->cols,CV_32FC1);
+    static cv::Mat Z(lf.im->rows,lf.im->cols,CV_32FC1);
     for (int level=utrkLevel2DStart; level<utrkLevel2DEnd; level++){
         int iters=3;
         for(int i=0;i<iters;i++){
             //HACK: use 3d alignment with depth disabled for 2D. ESM would be much better, but I'm lazy right now.
             bool success = align_level_largedef_gray_forward(   (*lf.pyramid)[level],//Total Mem cost ~185 load/stores of image
-                                                                Mat(),
+                                                                cv::Mat(),
                                                                 (*frame.pyramid)[level],
-                                                                cameraMatrixPyr[level],//Mat_<double>
-                                                                p2d,                //Mat_<double>
+                                                                cameraMatrixPyr[level],//cv::Mat_<double>
+                                                                p2d,                //cv::Mat_<double>
                                                                 CV_DTAM_FWD,
                                                                 .7,
                                                                 3);
@@ -289,7 +287,7 @@ bool utrk(Ptr<Frame> _frame){
     frame.relPose2d=p2d;
     frame.reg2d=1;
     
-    Mat pbase,plf,p;
+    cv::Mat pbase,plf,p;
     RTToLie(lf.R, lf.T, plf);//plf has global pose of lf
     RTToLie(base.R, base.T,pbase);//pbase has global pose of base
     p=LieAdd(p2d,plf);//p has global pose of frame
@@ -303,8 +301,8 @@ bool utrk(Ptr<Frame> _frame){
             bool success = align_level_largedef_gray_forward(   (*base.pyramid)[level],//Total Mem cost ~185 load/stores of image
                                                                 base.optimizer->getBestDepthSoFar(),
                                                                 (*frame.pyramid)[level],
-                                                                cameraMatrixPyr[level],//Mat_<double>
-                                                                p,                //Mat_<double>
+                                                                cameraMatrixPyr[level],//cv::Mat_<double>
+                                                                p,                //cv::Mat_<double>
                                                                 CV_DTAM_FWD,
                                                                 thr,
                                                                 6);
@@ -323,43 +321,43 @@ bool utrk(Ptr<Frame> _frame){
     return 1;
 }
 
-cv::gpu::CudaMem imageContainerUcv;
-bool ucv(Ptr<Frame> _base,Ptr<Frame> _alt){
+cv::Image imageContainerUcv;
+bool ucv(cv::Ptr<Frame> _base,cv::Ptr<Frame> _alt){
     Frame& base=*_base;
     Frame& alt=*_alt;
-    Mat ucameraMatrix=this->cameraMatrix.clone();
-    Mat b,a;
+    cv::Mat ucameraMatrix=this->cameraMatrix.clone();
+    cv::Mat b,a;
     
-    Size2d s0=base.im->size();
-    resize(*base.im,b,ucvSize);
-    resize(*alt.im,a,ucvSize);
-    Size2d sn=b.size();
+    cv::Size2d s0=base.im->size();
+    cv::resize(*base.im,b,ucvSize);
+    cv::resize(*alt.im,a,ucvSize);
+    cv::Size2d sn=b.size();
     cout<<sum(a)<<sum(b)<<endl;
     double sx=(sn.width/s0.width);
     double sy=(sn.height/s0.height);
-    ucameraMatrix+=(Mat)(Mat_<double>(3,3) << 0,0.0,0.5,
+    ucameraMatrix+=(cv::Mat)(cv::Mat_<double>(3,3) << 0,0.0,0.5,
                                         0.0,0.0,0.5,
                                         0.0,0.0,0);
-    ucameraMatrix=ucameraMatrix.mul((Mat)(Mat_<double>(3,3) <<    sx,0.0,sx,
+    ucameraMatrix=ucameraMatrix.mul((cv::Mat)(cv::Mat_<double>(3,3) <<    sx,0.0,sx,
                                             0.0,sy ,sy,
                                             0.0,0.0,1.0));
-    ucameraMatrix-=(Mat)(Mat_<double>(3,3) << 0,0.0,0.5,
+    ucameraMatrix-=(cv::Mat)(cv::Mat_<double>(3,3) << 0,0.0,0.5,
                                         0.0,0.0,0.5,
                                         0.0,0.0,0);
 
-    Ptr<CostVolume> cvp(new CostVolume(b,base.fid,32,0.015,0.0,base.R,base.T,ucameraMatrix));
+    cv::Ptr<CostVolume> cvp(new CostVolume(b,base.fid,32,0.015,0.0,base.R,base.T,ucameraMatrix));
     CostVolume& cv=*cvp;
     
     imageContainerUcv.create(a.rows,a.cols,CV_8UC4);
-    Mat tmp,ret;
+    cv::Mat tmp,ret;
     cvtColor(a,tmp,CV_RGB2RGBA);
-    Mat imageContainerRef=imageContainerUcv;//Required by ambiguous conversion rules
+    cv::Mat imageContainerRef=imageContainerUcv;//Required by ambiguous conversion rules
     tmp.convertTo(imageContainerRef,CV_8UC4,255.0);
     cv.updateCost(imageContainerUcv, alt.R, alt.T);
 
 
     
-    Ptr<DepthmapDenoiseWeightedHuber> optimizerp(new DepthmapDenoiseWeightedHuber(cv));
+    cv::Ptr<DepthmapDenoiseWeightedHuber> optimizerp(new DepthmapDenoiseWeightedHuber(cv));
     DepthmapDenoiseWeightedHuber& optimizer=*optimizerp;
 //     optimizer.thetaStart =    20.0;
 //     optimizer.thetaMin=0.01;
@@ -400,12 +398,12 @@ bool ucv(Ptr<Frame> _base,Ptr<Frame> _alt){
 
 
 void Tutrk(int* stop){
-    cout<<"Thread Launched "<< stop << endl;
+    std::cout<<"Thread Launched "<< stop << std::endl;
     while(!*stop){
-        Ptr<Frame> myFrame=utrkq.pop();
+        cv::Ptr<Frame> myFrame=utrkq.pop();
         if(!utrk(myFrame)){
             utrkq.readStall();//prevent others from wasting time trying to track until got a new cv
-            std::vector<Ptr<Frame> > frames=utrkd.peekn(2);
+            std::vector<cv::Ptr<Frame> > frames=utrkd.peekn(2);
             ucv(frames[0],frames[1]);
             if(!utrk(myFrame)){//try again
                 CV_Error(CV_StsAssert, "Tracking Lost! Could not recover. Quitting.");
