@@ -16,7 +16,7 @@
 
 
 
-namespace cv { namespace gpu { namespace device {
+namespace cv { namespace cuda { namespace device {
     namespace dtam_optimizer{
 
 static unsigned int arows,acols;
@@ -44,7 +44,7 @@ void funcName##Caller arglist{                                                  
    dim3 dimGrid((acols  + dimBlock.x - 1) / dimBlock.x,                                  \
                 (arows + dimBlock.y - 1) / dimBlock.y);                                  \
    funcName<<<dimGrid, dimBlock,0,localStream>>>notypes;                                  \
-   cudaSafeCall( cudaGetLastError() );\
+   CV_CUDEV_SAFE_CALL( cudaGetLastError() );\
 };static __global__ void funcName arglist
 
 
@@ -55,7 +55,7 @@ void funcName##Caller arglist{                                                  
    dim3 dimGrid(1,                                  \
                 (arows + dimBlock.y - 1) / dimBlock.y);                                  \
    funcName<<<dimGrid, dimBlock,0,localStream>>>notypes;                                  \
-   cudaSafeCall( cudaGetLastError() );\
+   CV_CUDEV_SAFE_CALL( cudaGetLastError() );\
 };static __global__ void funcName arglist
 
 const int BLOCKX1D=256;
@@ -66,7 +66,7 @@ void funcName##Caller arglist{                                                  
    dim3 dimBlock(BLOCKX1D);                                                              \
    dim3 dimGrid((acols*arows) / dimBlock.x);                                             \
    funcName<<<dimGrid, dimBlock,0,localStream>>>notypes;                                  \
-   cudaSafeCall( cudaGetLastError() );\
+   CV_CUDEV_SAFE_CALL( cudaGetLastError() );\
 };static __global__ void funcName arglist
 
 
@@ -236,7 +236,7 @@ void computeGCaller  (float* pp, float* g1p, float* gxp, float* gyp, float lambd
                 (arows + dimBlock.y - 1) / dimBlock.y);
    computeG1<<<dimGrid, dimBlock,0,localStream>>>(pp, g1p, gxp, gyp, lambda, cols);
    computeG2<<<dimGrid, dimBlock,0,localStream>>>(pp, g1p, gxp, gyp, lambda, cols);
-   cudaSafeCall( cudaGetLastError() );
+   CV_CUDEV_SAFE_CALL( cudaGetLastError() );
 };
 
 GENERATE_CUDA_FUNC2DROWS(computeG1,
@@ -624,13 +624,13 @@ void updateQDCaller(float* gqxpt, float* gqypt, float *dpt, float * apt,
     dim3 dimBlock(BLOCKX2D, BLOCKY2D);
     dim3 dimGrid(1, (arows + dimBlock.y - 1) / dimBlock.y);
     assert(dimGrid.y>0);
-    cudaSafeCall( cudaGetLastError() );
+    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
     updateQ<<<dimGrid, dimBlock,0,localStream>>>( gqxpt, gqypt, dpt, apt,
             gxpt, gypt, cols, sigma_q, sigma_d, epsilon, theta);
-    cudaSafeCall( cudaGetLastError() );
+    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
     updateD<<<dimGrid, dimBlock,0,localStream>>>( gqxpt, gqypt, dpt, apt,
             gxpt, gypt, cols, sigma_q, sigma_d, epsilon, theta);
-    cudaSafeCall( cudaGetLastError() );
+    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
 };
 __global__ void updateQD  (float* gqxpt, float* gqypt, float *dpt, float * apt,
                 float *gxpt, float *gypt, int cols, float sigma_q, float sigma_d, float epsilon,

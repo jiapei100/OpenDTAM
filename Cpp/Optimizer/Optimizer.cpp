@@ -5,13 +5,13 @@
 
 #include "Optimizer.hpp"
 #include "Optimizer.cuh"
-#include <opencv2/gpu/stream_accessor.hpp>
+//#include <opencv2/gpu/stream_accessor.hpp>
+#include <opencv2/core/cuda.hpp>
 #include <opencv2/core/core.hpp>
 #include <iostream>
 
-using namespace std;
-using namespace cv;
-using namespace gpu;
+
+using namespace cv::cuda;
 static void memZero(GpuMat& in,Stream& cvStream);
 
 void Optimizer::setDefaultParams(){
@@ -25,7 +25,7 @@ void Optimizer::setDefaultParams(){
 }
 
 static void memZero(GpuMat& in,Stream& cvStream){
-    cudaSafeCall(cudaMemsetAsync(in.data,0,in.rows*in.cols*sizeof(float),cv::gpu::StreamAccessor::getStream(cvStream)));
+    CV_CUDEV_SAFE_CALL(cudaMemsetAsync(in.data,0,in.rows*in.cols*sizeof(float),cv::cuda::StreamAccessor::getStream(cvStream)));
 }
 
 Optimizer::Optimizer(CostVolume& cv) : cv(cv), cvStream(cv.cvStream)
@@ -54,16 +54,16 @@ void Optimizer::initOptimization(){
 }
 
 void Optimizer::initA() {
-//     cv.loInd.copyTo(_a,cvStream);
-    cvStream.enqueueCopy(cv.loInd,_a);
+     cv.loInd.copyTo(_a,cvStream);
+//    cvStream.enqueueCopy(cv.loInd,_a);
 }
 
-bool Optimizer::optimizeA(const cv::gpu::GpuMat _d,cv::gpu::GpuMat _a){
-    using namespace cv::gpu::device::dtam_optimizer;
-    localStream = cv::gpu::StreamAccessor::getStream(cvStream);
+bool Optimizer::optimizeA(const cv::cuda::GpuMat _d,cv::cuda::GpuMat _a){
+    using namespace cv::cuda::device::dtam_optimizer;
+    localStream = cv::cuda::StreamAccessor::getStream(cvStream);
     this->_a=_a;
 
-    Mat tmp(cv.rows,cv.cols,CV_32FC1);
+    cv::Mat tmp(cv.rows,cv.cols,CV_32FC1);
     bool doneOptimizing = theta <= thetaMin;
     int layerStep = cv.rows * cv.cols;
     float* d = (float*) _d.data;
@@ -74,10 +74,10 @@ bool Optimizer::optimizeA(const cv::gpu::GpuMat _d,cv::gpu::GpuMat _a){
     minimizeACaller  ( cv.data, a, d, cv.layers, theta,lambda);
     theta*=thetaStep;
     if (doneOptimizing){
-        stableDepthReady=Ptr<char>((char*)(new cudaEvent_t));
+        stableDepthReady=cv::Ptr<char>((char*)(new cudaEvent_t));
         cudaEventCreate((cudaEvent_t*)(char*)stableDepthReady,cudaEventBlockingSync);
-//         _a.convertTo(stableDepth,CV_32FC1,cv.depthStep,cv.far,cvStream);
-        cvStream.enqueueConvert(_a,stableDepth,CV_32FC1,cv.depthStep,cv.far);
+         _a.convertTo(stableDepth,CV_32FC1,cv.depthStep,cv.far,cvStream);
+//        cvStream.enqueueConvert(_a,stableDepth,CV_32FC1,cv.depthStep,cv.far);
         cudaEventRecord(*(cudaEvent_t*)(char*)stableDepthReady,localStream);
         stableDepthEnqueued = 1;
     }
@@ -90,16 +90,16 @@ const cv::Mat Optimizer::depthMap(){
     // internal data to true inverse depth, as this may change.
     // Currently depth is just a constant multiple of the index, so
     // infinite depth is always represented. This is likely to change.
-    Mat tmp(cv.rows,cv.cols,CV_32FC1);
-    cv::gpu::Stream str;
+    cv::Mat tmp(cv.rows,cv.cols,CV_32FC1);
+    cv::cuda::Stream str;
     if(stableDepthEnqueued){
         cudaEventSynchronize(*(cudaEvent_t*)(char*)stableDepthReady);
-//         stableDepth.download(tmp,str);
-        str.enqueueDownload(stableDepth,tmp);
+        stableDepth.download(tmp,str);
+//        str.enqueueDownload(stableDepth,tmp);
         str.waitForCompletion();
     }else{
-//         _a.download(tmp,str);
-        str.enqueueDownload(_a,tmp);
+         _a.download(tmp,str);
+//        str.enqueueDownload(_a,tmp);
         str.waitForCompletion();
         tmp = tmp * cv.depthStep + cv.far;
     }

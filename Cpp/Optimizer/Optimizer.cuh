@@ -1,8 +1,8 @@
 
 #ifndef OPTIMIZER_CUH
 #define OPTIMIZER_CUH
-#include <opencv2/gpu/device/common.hpp>
-namespace cv { namespace gpu { namespace device { namespace dtam_optimizer{
+#include <opencv2/cudev/common.hpp>
+namespace cv { namespace cuda { namespace device { namespace dtam_optimizer{
     struct m33{
             float data[9];
         };
