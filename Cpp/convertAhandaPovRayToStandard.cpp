@@ -6,51 +6,49 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <fstream>
-#include <string.h>
+#include <string>
 #include <stdio.h>
 
-using namespace cv;
-using namespace std;
-Vec3f direction;
-Vec3f upvector;
+cv::Vec3f direction;
+cv::Vec3f upvector;
 void convertAhandaPovRayToStandard(const char * filepath,
-                                   Mat& cameraMatrix,
-                                   Mat& R,
-                                   Mat& T)
+                                   cv::Mat& cameraMatrix,
+                                   cv::Mat& R,
+                                   cv::Mat& T)
 {
     char text_file_name[600];
     sprintf(text_file_name,"%s",filepath);
 
-    cout << "text_file_name = " << text_file_name << endl;
+    std::cout << "text_file_name = " << text_file_name << std::endl;
 
-    ifstream cam_pars_file(text_file_name);
+    std::ifstream cam_pars_file(text_file_name);
     if(!cam_pars_file.is_open())
     {
-        cerr<<"Failed to open param file, check location of sample trajectory!"<<endl;
+        std::cerr<<"Failed to open param file, check location of sample trajectory!"<<std::endl;
         exit(1);
     }
 
     char readlinedata[300];
 
-    Point3d direction;
-    Point3d upvector;
-    Point3d posvector;
+    cv::Point3d direction;
+    cv::Point3d upvector;
+    cv::Point3d posvector;
 
 
     while(1){
         cam_pars_file.getline(readlinedata,300);
-//         cout<<readlinedata<<endl;
+//         std::cout<<readlinedata<<std::endl;
         if ( cam_pars_file.eof())
             break;
 
 
-        istringstream iss;
+        std::istringstream iss;
 
 
         if ( strstr(readlinedata,"cam_dir")!= NULL){
 
 
-            string cam_dir_str(readlinedata);
+            std::string cam_dir_str(readlinedata);
 
             cam_dir_str = cam_dir_str.substr(cam_dir_str.find("= [")+3);
             cam_dir_str = cam_dir_str.substr(0,cam_dir_str.find("]"));
@@ -62,13 +60,13 @@ void convertAhandaPovRayToStandard(const char * filepath,
             iss.ignore(1,',') ;
             iss >> direction.y;
             iss.ignore(1,',');
-//             cout << "direction: "<< direction.x<< ", "<< direction.y << ", "<< direction.z << endl;
+//             std::cout << "direction: "<< direction.x<< ", "<< direction.y << ", "<< direction.z << std::endl;
 
         }
 
         if ( strstr(readlinedata,"cam_up")!= NULL){
 
-            string cam_up_str(readlinedata);
+            std::string cam_up_str(readlinedata);
 
             cam_up_str = cam_up_str.substr(cam_up_str.find("= [")+3);
             cam_up_str = cam_up_str.substr(0,cam_up_str.find("]"));
@@ -87,15 +85,15 @@ void convertAhandaPovRayToStandard(const char * filepath,
         }
 
         if ( strstr(readlinedata,"cam_pos")!= NULL){
-//            cout<< "cam_pos is present!"<<endl;
+//            std::cout<< "cam_pos is present!"<<std::endl;
 
-            string cam_pos_str(readlinedata);
+            std::string cam_pos_str(readlinedata);
 
             cam_pos_str = cam_pos_str.substr(cam_pos_str.find("= [")+3);
             cam_pos_str = cam_pos_str.substr(0,cam_pos_str.find("]"));
 
-//            cout << "cam pose str = " << endl;
-//            cout << cam_pos_str << endl;
+//            std::cout << "cam pose str = " << std::endl;
+//            std::cout << cam_pos_str << std::endl;
 
             iss.str(cam_pos_str);
             iss >> posvector.x ;
@@ -104,23 +102,23 @@ void convertAhandaPovRayToStandard(const char * filepath,
             iss.ignore(1,',');
             iss >> posvector.y ;
             iss.ignore(1,',');
-//             cout << "position: "<<posvector.x<< ", "<< posvector.y << ", "<< posvector.z << endl;
+//             std::cout << "position: "<<posvector.x<< ", "<< posvector.y << ", "<< posvector.z << std::endl;
 
         }
 
     }
 
-    R=Mat(3,3,CV_64F);
-    R.row(0)=Mat(direction.cross(upvector)).t();
-    R.row(1)=Mat(-upvector).t();
-    R.row(2)=Mat(direction).t();
+    R=cv::Mat(3,3,CV_64F);
+    R.row(0)=cv::Mat(direction.cross(upvector)).t();
+    R.row(1)=cv::Mat(-upvector).t();
+    R.row(2)=cv::Mat(direction).t();
 
-    T=-R*Mat(posvector);
-//     cout<<"T: "<<T<<endl<<"pos: "<<Mat(posvector)<<endl;
-   /* cameraMatrix=(Mat_<double>(3,3) << 480,0.0,320.5,
+    T=-R*cv::Mat(posvector);
+//     std::cout<<"T: "<<T<<std::endl<<"pos: "<<cv::Mat(posvector)<<std::endl;
+   /* cameraMatrix=(cv::Mat_<double>(3,3) << 480,0.0,320.5,
 										    0.0,480.0,240.5,
 										    0.0,0.0,1.0);*/
-    cameraMatrix=(Mat_<double>(3,3) << 481.20,0.0,319.5,
+    cameraMatrix=(cv::Mat_<double>(3,3) << 481.20,0.0,319.5,
                   0.0,480.0,239.5,
                   0.0,0.0,1.0);
 
