@@ -1,8 +1,8 @@
-#include <opencv2/gpu/device/common.hpp>//for cudaSafeCall
+#include <opencv2/cudev/common.hpp>//for CV_CUDEV_SAFE_CALL
 #include <opencv2/core/core.hpp>//for CV_Assert
 #include "DepthmapDenoiseWeightedHuber.cuh"
 
-namespace cv { namespace gpu { namespace device {
+namespace cv { namespace cuda { namespace device {
     namespace dtam_denoise{
 
 
@@ -26,7 +26,7 @@ void funcName##Caller arglist{                                                  
    dim3 dimGrid((acols  + dimBlock.x - 1) / dimBlock.x,                                  \
                 (arows + dimBlock.y - 1) / dimBlock.y);                                  \
    funcName<<<dimGrid, dimBlock,0,localStream>>>notypes;                                  \
-   cudaSafeCall( cudaGetLastError() );\
+   CV_CUDEV_SAFE_CALL( cudaGetLastError() );\
 };static __global__ void funcName arglist
 
 
@@ -37,7 +37,7 @@ void funcName##Caller arglist{                                                  
    dim3 dimGrid(1,                                  \
                 (arows + dimBlock.y - 1) / dimBlock.y);                                  \
    funcName<<<dimGrid, dimBlock,0,localStream>>>notypes;                                  \
-   cudaSafeCall( cudaGetLastError() );\
+   CV_CUDEV_SAFE_CALL( cudaGetLastError() );\
 };static __global__ void funcName arglist
 
 
@@ -54,7 +54,7 @@ void computeGCaller  (float* pp, float* g1p, float* gxp, float* gyp, int cols){
    computeG2<<<dimGrid, dimBlock,0,localStream>>>(pp, g1p, gxp, gyp, cols);
    cudaDeviceSynchronize();
    
-   cudaSafeCall( cudaGetLastError() );
+   CV_CUDEV_SAFE_CALL( cudaGetLastError() );
 };
 
 GENERATE_CUDA_FUNC2DROWS(computeG1,
@@ -445,13 +445,13 @@ void updateQDCaller(float* gqxpt, float* gqypt, float *dpt, float * apt,
     dim3 dimBlock(BLOCKX2D, BLOCKY2D);
     dim3 dimGrid(1, (arows + dimBlock.y - 1) / dimBlock.y);
     CV_Assert(dimGrid.y>0);
-    cudaSafeCall( cudaGetLastError() );
+    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
     updateQ<<<dimGrid, dimBlock,0,localStream>>>( gqxpt, gqypt, dpt, apt,
             gxpt, gypt, cols, sigma_q, sigma_d, epsilon, theta);
-    cudaSafeCall( cudaGetLastError() );
+    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
     updateD<<<dimGrid, dimBlock,0,localStream>>>( gqxpt, gqypt, dpt, apt,
             gxpt, gypt, cols, sigma_q, sigma_d, epsilon, theta);
-    cudaSafeCall( cudaGetLastError() );
+    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
 };
 
 // static __global__ void updateQD  (float* gqxpt, float* gqypt, float *dpt, float * apt,
