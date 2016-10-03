@@ -366,7 +366,7 @@ bool ucv(cv::Ptr<Frame> _base,cv::Ptr<Frame> _alt){
 //     gpause();
     bool doneOptimizing;
     do{ 
-        cout<<"Theta: "<< optimizer.getTheta()<<endl;
+        std::cout<<"Theta: "<< optimizer.getTheta()<<std::endl;
         optimizer._a.download(ret);
         pfShow("uA", ret, 0, cv::Vec2d(0, 32));
 
