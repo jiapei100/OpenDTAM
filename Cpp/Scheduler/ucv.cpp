@@ -21,34 +21,34 @@ Tucv{
     }
 }
 
-cv::gpu::CudaMem imageContainer;
+cv::cv::Mat imageContainer;
 
-Ptr<CostVolume> ucv(Frame& base,Frame& alt){
-    Mat cameraMatrix=this->cameraMatrix.clone();
+cv::Ptr<CostVolume> ucv(Frame& base,Frame& alt){
+    cv::Mat cameraMatrix=this->cameraMatrix.clone();
     gpuMat b,a;
     
-    Size2d s0=base.im.size();
-    resize(base.im,b,Size(),sc,sc);
-    resize(alt.im,a,Size(),sc,sc);
-    Size2d sn=b.size();
+    cv::Size2d s0=base.im.size();
+    cv::resize(base.im,b,Size(),sc,sc);
+    cv::resize(alt.im,a,Size(),sc,sc);
+    cv::Size2d sn=b.size();
     double sx=(sn.width/s0.width);
     double sy=(sn.height/s0.height);
-    cameraMatrix+=(Mat)(Mat_<double>(3,3) << 0,0.0,0.5,
+    cameraMatrix+=(cv::Mat)(cv::Mat_<double>(3,3) << 0,0.0,0.5,
                                         0.0,0.0,0.5,
                                         0.0,0.0,0);
-    cameraMatrix=cameraMatrix.mul((Mat)(Mat_<double>(3,3) <<    sx,0.0,sx,
+    cameraMatrix=cameraMatrix.mul((cv::Mat)(cv::Mat_<double>(3,3) <<    sx,0.0,sx,
                                             0.0,sy ,sy,
                                             0.0,0.0,1.0));
-    cameraMatrix-=(Mat)(Mat_<double>(3,3) << 0,0.0,0.5,
+    cameraMatrix-=(cv::Mat)(cv::Mat_<double>(3,3) << 0,0.0,0.5,
                                         0.0,0.0,0.5,
                                         0.0,0.0,0);
         
-    Ptr<CostVolume> cvp(new CostVolume(b,base.fid,32,0.015,0.0,base.R,base.T,cameraMatrix));
+    cv::Ptr<CostVolume> cvp(new CostVolume(b,base.fid,32,0.015,0.0,base.R,base.T,cameraMatrix));
     CostVolume& cv=*cvp;
     imageContainer.create(a.rows,a.cols,CV_8UC4);
-    Mat tmp,ret;
+    cv::Mat tmp,ret;
     cvtColor(b,tmp,CV_RGB2RGBA);
-    Mat imageContainerRef=imageContainer;//Required by ambiguous conversion rules
+    cv::Mat imageContainerRef=imageContainer;//Required by ambiguous conversion rules
     tmp.convertTo(imageContainerRef,CV_8UC4,255.0);
     cv.updateCost(imageContainer, R, T);
     DepthmapDenoiseWeightedHuber optimizer(cv);
