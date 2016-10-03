@@ -6,14 +6,13 @@
 #include "utils/ImplThreadLaunch.hpp"
 #include "graphics.hpp"
 
-using namespace std;
-using namespace cv;
-static queue<Mat> toShow;
-static queue<string> nameShow;
-static queue<Vec2d> autoScale;
 
-static queue<int> props;
-static queue<string> nameWin;
+static std::queue<cv::Mat> toShow;
+static std::queue<std::string> nameShow;
+static std::queue<cv::Vec2d> autoScale;
+
+static std::queue<int> props;
+static std::queue<std::string> nameWin;
 static boost::mutex Gmux; 
 static volatile int ready=0;
 static volatile int pausing=0;
@@ -30,11 +29,11 @@ void gcheck(){
     }
 }
 
-void pfShow(const string name,const Mat& _mat,int defaultscale, Vec2d autoscale){
+void pfShow(const std::string name,const cv::Mat& _mat,int defaultscale, cv::Vec2d autoscale){
     assert(_mat.rows>0 && _mat.cols>0);
 
     if (defaultscale==1){
-        autoscale=Vec2d(-1,-1);
+        autoscale=cv::Vec2d(-1,-1);
     }
     //cull frames
     Gmux.lock();
@@ -52,7 +51,7 @@ void pfShow(const string name,const Mat& _mat,int defaultscale, Vec2d autoscale)
     }
 
 }
-void pfWindow(const string name,int prop){
+void pfWindow(const std::string name,int prop){
     Gmux.lock();
     nameWin.push(name);
     props.push(prop);
@@ -65,7 +64,7 @@ void pfWindow(const string name,int prop){
     }
 }
 template <class T>
-static inline T take(queue<T>& q){
+static inline T take(std::queue<T>& q){
     T ref=q.front();
     q.pop();
     return ref;
@@ -75,22 +74,22 @@ static inline T take(queue<T>& q){
 
 
 void guiLoop(int* die){
-    Mat mat;
+    cv::Mat mat;
     while(!*die){
         if (props.size()>0){//deal with new windows
             Gmux.lock();
-            string name=take(nameWin);
+            std::string name=take(nameWin);
             int prop=take(props);
             
             Gmux.unlock();
-            namedWindow(name,prop);
+            cv::namedWindow(name,prop);
         }
         if (ready){//deal with imshows
             Gmux.lock();
             assert(nameShow.size()>0);
             mat=take(toShow);
-            string name=take(nameShow);
-            Vec2d autoscale=take(autoScale);
+            std::string name=take(nameShow);
+            cv::Vec2d autoscale=take(autoScale);
             ready--;
             Gmux.unlock();
             if ((autoscale[0]==autoscale[1] && autoscale[0]==0)){
@@ -99,8 +98,8 @@ void guiLoop(int* die){
                 cv::minMaxIdx(mat, &min, &max);
                 float scale = 1.0/ (max-min);
                 mat.convertTo(mat,CV_MAKETYPE(CV_32F,mat.channels()), scale, -min*scale);
-//                 cout<<name<<": view scale: "<<max-min<<endl;
-//                 cout<<name<<": min: "<<min<<"  max: "<< max<<endl;
+//                 std::cout<<name<<": view scale: "<<max-min<<std::endl;
+//                 std::cout<<name<<": min: "<<min<<"  max: "<< max<<std::endl;
             }else if (autoscale[0]!=autoscale[1]){
                 double scale= 1.0/(autoscale[1]-autoscale[0]);
                 mat.convertTo(mat,CV_MAKETYPE(mat.type(),mat.channels()),scale,-autoscale[0]*scale);
@@ -108,29 +107,29 @@ void guiLoop(int* die){
             mat.convertTo(mat,CV_MAKETYPE(CV_8U,mat.channels()), 255.0);//use 8 bit so we can have the nice mouse over
             if(mat.rows<250){
                 name+=":small";
-                namedWindow(name, CV_WINDOW_KEEPRATIO | CV_GUI_NORMAL);
+                cv::namedWindow(name, CV_WINDOW_KEEPRATIO | CV_GUI_NORMAL);
             }
             imshow( name, mat);
-            waitKey(1);//waitkey must occur here so matrix doesn't fall out of scope because imshow is dumb that way :(
-//            cout<<name<<" queue:"<<ready<<endl;
+            cv::waitKey(1);//waitkey must occur here so matrix doesn't fall out of scope because imshow is dumb that way :(
+//            std::cout<<name<<" std::queue:"<<ready<<std::endl;
         }else if(pausing){
-            namedWindow("control",CV_WINDOW_KEEPRATIO);
-            cout<<"Paused: Space (in GUI window) to continue"<<endl;
-            while(waitKey()!=' ');
+            cv::namedWindow("control",CV_WINDOW_KEEPRATIO);
+            std::cout<<"Paused: Space (in GUI window) to continue"<<std::endl;
+            while(cv::waitKey()!=' ');
             
             CV_XADD(&pausing,-1);
         }else{
-            waitKey(1);
+            cv::waitKey(1);
         }
         if(pausing<0){
             pausing=0;
         }
-//         waitKey(1);
+//         cv::waitKey(1);
 //         usleep(100);
     }
     allDie=1;
-    cout<<"Gui Shutting down"<<endl;
-    waitKey(1);
+    std::cout<<"Gui Shutting down"<<std::endl;
+    cv::waitKey(1);
 }
 void initGui(){
     ImplThread::startThread(guiLoop,"Graphics"); 
