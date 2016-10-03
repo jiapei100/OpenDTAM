@@ -1,7 +1,7 @@
 #if !defined WIN32 && !defined WINCE
 #  include "ImplThreadLaunch.hpp"
 
-using namespace std;
+
 namespace ImplThread{
     ImplMutex mutex;
     std::map<const pthread_t,int* > mymap;
@@ -11,7 +11,7 @@ namespace ImplThread{
         for ( std::map<const pthread_t,int*>::iterator it=mymap.begin(); it!=mymap.end();it++){
             pthread_t thread_id=it->first;
             *(it->second)=1;
-            cout<<" Thread Stop: "<< thread_id<<":"<<it->second<< endl;
+            std::cout<<" Thread Stop: "<< thread_id<<":"<<it->second<< std::endl;
             
             timespec ts;
             clock_gettime(CLOCK_REALTIME, &ts);
@@ -27,7 +27,7 @@ namespace ImplThread{
     void*LAUNCH_THREAD(void* in){
         std::pair<void (*)(int*),int* >* p=(std::pair<void (*)(int*),int* >*)in;
         void (*func)(int*)=p->first;
-        cout<<" Thread Start: "<< p->second<< endl;
+        std::cout<<" Thread Start: "<< p->second<< std::endl;
         func(p->second);
         
     };
@@ -46,7 +46,7 @@ namespace ImplThread{
             CPU_SET(affinity%cores, &cpuset);
             pthread_setaffinity_np(thread,1, &cpuset);
         }
-        cout<<" Thread Requested: "<<_name<<" : "<<thread<<":"<< stopp<< endl;
+        std::cout<<" Thread Requested: "<<_name<<" : "<<thread<<":"<< stopp<< std::endl;
         mymap[thread]=stopp;
         
         mutex.unlock();
