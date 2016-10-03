@@ -15,9 +15,9 @@
 #include <vector>
 #include <algorithm>
 //needs: 
-//Mat base
-//Mat cameraMatrix
-//Mat depth
+//cv::Mat base
+//cv::Mat cameraMatrix
+//cv::Mat depth
 //Cost cv
 //cols
 
@@ -50,13 +50,12 @@
 // the pyramid, and implies that it uses Model 1 for the full
 // estimation. TODO:I would like to allow either choice to be made.
 //
-using namespace cv;
-using namespace std;
+
 #define LEVELS_2D 2
 
-void createPyramid(const Mat& image,vector<Mat>& pyramid,int& levels){
+void createPyramid(const cv::Mat& image,std::vector<cv::Mat>& pyramid,int& levels){
     
-    Mat in=image;
+    cv::Mat in=image;
     if(levels==0){//auto size to end at >=15px tall (use height because shortest dim usually)
         for (float scale=1.0; scale>=15.0/image.rows; scale/=2, levels++);
     }
@@ -66,24 +65,24 @@ void createPyramid(const Mat& image,vector<Mat>& pyramid,int& levels){
     pyramid[l2--]=in;
     
     for (float scale=0.5; l2>=0; scale/=2, l2--) {
-        Mat out;
+        cv::Mat out;
 
         
-        resize(in,out,Size(),.5,.5,CV_INTER_AREA);
+        resize(in,out,cv::Size(),.5,.5,CV_INTER_AREA);
         pyramid[l2]=out;
         in=out;
     }
     
 }
 
-static void createPyramids(const Mat& base,
-                           const Mat& depth,
-                           const Mat& input,
-                           const Mat& cameraMatrixIn,
-                           vector<Mat>& basePyr,
-                           vector<Mat>& depthPyr,
-                           vector<Mat>& inPyr,
-                           vector<Mat>& cameraMatrixPyr,
+static void createPyramids(const cv::Mat& base,
+                           const cv::Mat& depth,
+                           const cv::Mat& input,
+                           const cv::Mat& cameraMatrixIn,
+                           std::vector<cv::Mat>& basePyr,
+                           std::vector<cv::Mat>& depthPyr,
+                           std::vector<cv::Mat>& inPyr,
+                           std::vector<cv::Mat>& cameraMatrixPyr,
                            int& levels
 ){
     createPyramid(base,basePyr,levels);
@@ -93,10 +92,10 @@ static void createPyramids(const Mat& base,
     cameraMatrixPyr.resize(levels);
     // Figure out camera matrices for each level
     for (double scale=1.0,l2=levels-1; l2>=0; scale/=2, l2--) {
-        Mat cameraMatrix=make4x4(cameraMatrixIn.clone());
-        cameraMatrix(Range(0,2),Range(2,3))+=.5;
-        cameraMatrix(Range(0,2),Range(0,3))*= scale;
-        cameraMatrix(Range(0,2),Range(2,3))-=.5;
+        cv::Mat cameraMatrix=make4x4(cameraMatrixIn.clone());
+        cameraMatrix(cv::Range(0,2),cv::Range(2,3))+=.5;
+        cameraMatrix(cv::Range(0,2),cv::Range(0,3))*= scale;
+        cameraMatrix(cv::Range(0,2),cv::Range(2,3))-=.5;
         cameraMatrixPyr[l2]=cameraMatrix;
     }
     
@@ -105,8 +104,8 @@ bool Track::align(){
     return align_gray(baseImage, depth, thisFrame);
 };
 
-bool Track::align_gray(Mat& _base, Mat& depth, Mat& _input){
-    Mat input,base,lastFrameGray;
+bool Track::align_gray(cv::Mat& _base, cv::Mat& depth, cv::Mat& _input){
+    cv::Mat input,base,lastFrameGray;
     input=makeGray(_input);
     base=makeGray(_base);
     lastFrameGray=makeGray(lastFrame)  ;
@@ -116,31 +115,31 @@ bool Track::align_gray(Mat& _base, Mat& depth, Mat& _input){
     int startlevel=0;
     int endlevel=5;
 
-    Mat p=LieSub(pose,basePose);// the Lie parameters 
-//     cout<<"pose: "<<p<<endl;
+    cv::Mat p=LieSub(pose,basePose);// the Lie parameters 
+//     std::cout<<"pose: "<<p<<std::endl;
 
-    vector<Mat> basePyr,depthPyr,inPyr,cameraMatrixPyr;
+    std::vector<cv::Mat> basePyr,depthPyr,inPyr,cameraMatrixPyr;
     createPyramids(base,depth,input,cameraMatrix,basePyr,depthPyr,inPyr,cameraMatrixPyr,levels);
     
-    vector<Mat> lfPyr;
+    std::vector<cv::Mat> lfPyr;
     createPyramid(lastFrameGray,lfPyr,levels);
     
-    Mat mm;
+    cv::Mat mm;
     {
-        Mat T=lfPyr[0];
-        Mat _I=inPyr[0];
-        Mat result,tmp;
-        Scalar c=mean(T);
+        cv::Mat T=lfPyr[0];
+        cv::Mat _I=inPyr[0];
+        cv::Mat result,tmp;
+        cv::Scalar c=mean(T);
         int move=T.rows/2-1;
-        copyMakeBorder(_I,tmp,move,move,move,move,BORDER_CONSTANT,c);
-        matchTemplate( tmp, T, result, 0);
-//         matchTemplate( _I, T(Range(5,10),Range(5,15)), result, 0 );
-        double minVal; double maxVal; Point minLoc; Point maxLoc;
-        Point matchLoc;
+        copyMakeBorder(_I,tmp,move,move,move,move,cv::BORDER_CONSTANT,c);
+        cv::matchTemplate( tmp, T, result, 0);
+//         cv::matchTemplate( _I, T(cv::Range(5,10),cv::Range(5,15)), result, 0 );
+        double minVal; double maxVal; cv::Point minLoc; cv::Point maxLoc;
+        cv::Point matchLoc;
 
-        minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-        Point2d moff=minLoc;
-        mm=(Mat)moff;
+        minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat() );
+        cv::Point2d moff=minLoc;
+        mm=(cv::Mat)moff;
         mm-=move;
         if(verbose){
             pfShow("soln",result);
@@ -149,10 +148,10 @@ bool Track::align_gray(Mat& _base, Mat& depth, Mat& _input){
 
     int improved; 
     int level=startlevel;
-    Mat p2d=Mat::zeros(1,6,CV_64FC1);
+    cv::Mat p2d=cv::Mat::zeros(1,6,CV_64FC1);
     p2d.at<double>(0,1)=.07*mm.at<double>(0,0);
     p2d.at<double>(0,0)=-.07*mm.at<double>(1,0);
-    Mat expected=p2d.clone();
+    cv::Mat expected=p2d.clone();
     for (; level<LEVELS_2D; level++){
         int iters=10;
         for(int i=0;i<iters||improved==2&&i<100;i++){
@@ -160,8 +159,8 @@ bool Track::align_gray(Mat& _base, Mat& depth, Mat& _input){
             improved = align_level_largedef_gray_forward(  lfPyr[level],//Total Mem cost ~185 load/stores of image
                                                 depthPyr[level]*0.0,
                                                 inPyr[level],
-                                                cameraMatrixPyr[level],//Mat_<double>
-                                                p2d,                //Mat_<double>
+                                                cameraMatrixPyr[level],//cv::Mat_<double>
+                                                p2d,                //cv::Mat_<double>
                                                 CV_DTAM_FWD,
                                                 1,
                                                 3);
@@ -169,15 +168,15 @@ bool Track::align_gray(Mat& _base, Mat& depth, Mat& _input){
 //                 break;
         }
     }
-    cout<<"ratio: "<<setprecision(3)<<p2d/expected<<endl;
+    std::cout<<"ratio: "<<std::setprecision(3)<<p2d/expected<<std::endl;
 //     gpause();
     p=LieAdd(p2d,p);
 //     { //debug template match helper
-//         cout<<"mm:"<<mm<<endl;
-//         cout<<p2d<<endl;
+//         std::cout<<"mm:"<<mm<<std::endl;
+//         std::cout<<p2d<<std::endl;
 //         gpause();
 //     }
-//     cout<<"3D iteration:"<<endl;
+//     std::cout<<"3D iteration:"<<std::endl;
     
     for (level=startlevel; level<levels && level<endlevel; level++){
         int iters=4;
@@ -192,14 +191,14 @@ bool Track::align_gray(Mat& _base, Mat& depth, Mat& _input){
             improved = align_level_largedef_gray_forward(   basePyr[level],//Total Mem cost ~185 load/stores of image
                                                             depthPyr[level],
                                                             inPyr[level],
-                                                            cameraMatrixPyr[level],//Mat_<double>
-                                                            p,                //Mat_<double>
+                                                            cameraMatrixPyr[level],//cv::Mat_<double>
+                                                            p,                //cv::Mat_<double>
                                                             CV_DTAM_FWD,
                                                             thr,
                                                             6);
 
 //             if(tocq()>.5){
-//                 cout<<"completed up to level: "<<level-startlevel+1<<"   iter: "<<i+1<<endl;
+//                 std::cout<<"completed up to level: "<<level-startlevel+1<<"   iter: "<<i+1<<std::endl;
 //                 goto loopend;//olny sactioned use of goto, the double break
 //             }
 //             if(!improved){
@@ -213,7 +212,7 @@ bool Track::align_gray(Mat& _base, Mat& depth, Mat& _input){
     static int runs=0;
     //assert(runs++<2);
     toc();
-    cout<<"Quality: "<<quality<<endl;
+    std::cout<<"Quality: "<<quality<<std::endl;
     return improved;
     
 }
@@ -254,7 +253,7 @@ void Track::ESM(){
 //     //Build map differentials:
 //     {
 //         //build identity map
-//         Mat_<Vec3f> xyin(im.rows,im.cols);
+//         cv::Mat_<Vec3f> xyin(im.rows,im.cols);
 //         float* pt=(float*) (xyin.data);
 //         float* d=(float*) (depth.data);
 //         for(int i=0;i<im.rows;i++){
@@ -267,11 +266,11 @@ void Track::ESM(){
 //         for (i=0; i<numDF; i++) {
 //             //build slightly perturbed matrix
 //             double small=1e-6;
-//             Mat_<double> ptemp=p.clone();
+//             cv::Mat_<double> ptemp=p.clone();
 //             ptemp(0,i)+=small;
-//             Mat dR=rodrigues(ptemp(0,Range(0,3)));
-//             Mat dT=ptemp(0,Range(3,6));
-//             Mat dA;
+//             cv::Mat dR=rodrigues(ptemp(0,cv::Range(0,3)));
+//             cv::Mat dT=ptemp(0,cv::Range(3,6));
+//             cv::Mat dA;
 //             hconcat(dR,dT,dA);
 //             dA=make4x4(dA);
 //             
@@ -299,23 +298,23 @@ void Track::ESM(){
 
 
 
-// vector<double> Track::PJCRStep(const Mat& base,
-//                                const Mat& depth,
-//                                const Mat& input,
-//                                const Mat& cameraMatrix,
-//                                const vector<double> p,
-//                                const vector<double>& maxStep=vector<double>()
+// std::vector<double> Track::PJCRStep(const cv::Mat& base,
+//                                const cv::Mat& depth,
+//                                const cv::Mat& input,
+//                                const cv::Mat& cameraMatrix,
+//                                const std::vector<double> p,
+//                                const std::vector<double>& maxStep=std::vector<double>()
 //                                ){
 //     
 //     
 // }
 // 
-// vector<double> Track::PJCFStep(const Mat& base,
-//                               const Mat& depth,
-//                               const Mat& input,
-//                               const Mat& cameraMatrix,
-//                               const vector<double>& p,
-//                               const vector<double>& maxStep=vector<double>()
+// std::vector<double> Track::PJCFStep(const cv::Mat& base,
+//                               const cv::Mat& depth,
+//                               const cv::Mat& input,
+//                               const cv::Mat& cameraMatrix,
+//                               const std::vector<double>& p,
+//                               const std::vector<double>& maxStep=std::vector<double>()
 //                               ){
 //     
 //     
@@ -326,7 +325,7 @@ void Track::cacheDerivatives(){
 //     int r=rows;
 //     int c=cols;
 //     //Build the in map 
-//     Mat_<Vec3f> idMap3;
+//     cv::Mat_<Vec3f> idMap3;
 //     {
 //         idMap3.create(r,c);//[rows][cols][3]
 //         float* id3=(float*) (idMap3.data);
@@ -342,11 +341,11 @@ void Track::cacheDerivatives(){
 //     }
 //     
 //     //Build the unincremented transform: (Mem cost 2 layer store,3 load :5)
-//     Mat baseMap(rows,cols,CV_32FC2);
+//     cv::Mat baseMap(rows,cols,CV_32FC2);
 //     {
-//         Mat_<double> p = Mat::zeros(1,6,CV_64FC1);
-//         Mat baseProj=paramsToProjection(p,cameraMatrix);
-//         Mat baseMap(r,c,CV_32FC2);
+//         cv::Mat_<double> p = cv::Mat::zeros(1,6,CV_64FC1);
+//         cv::Mat baseProj=paramsToProjection(p,cameraMatrix);
+//         cv::Mat baseMap(r,c,CV_32FC2);
 //         perspectiveTransform(idMap3,baseMap,baseProj);
 //     }
 //     
@@ -354,14 +353,14 @@ void Track::cacheDerivatives(){
 //     for (int paramNum=0; paramNum<numParams; paramNum++) {
 // 
 //         //Build the incremented transform
-//         Mat_<double> p = Mat::zeros(1,6,CV_64FC1);
+//         cv::Mat_<double> p = cv::Mat::zeros(1,6,CV_64FC1);
 //         p(0,paramNum)+=small;
-//         Mat proj=paramsToProjection(p,cameraMatrix);
-//         Mat tmp; hconcat(proj.colRange(Range(0,2)) ,proj.colRange(Range(3,4)) , tmp);//convert to 2D since only doing that for ESM
+//         cv::Mat proj=paramsToProjection(p,cameraMatrix);
+//         cv::Mat tmp; hconcat(proj.colRange(cv::Range(0,2)) ,proj.colRange(cv::Range(3,4)) , tmp);//convert to 2D since only doing that for ESM
 //         proj=tmp;
 //         
 //         //get a row of dmap/dp
-//         Mat outmap=dMdp.row(paramNum);
+//         cv::Mat outmap=dMdp.row(paramNum);
 //         
 //         perspectiveTransform(idMap3,outmap,proj);//outmap=baseMap+dMap/dp*small (Mem cost 5)
 //         
@@ -379,10 +378,10 @@ void Track::cacheDerivatives(){
 
 #define BSZ 16 //This should be adjusted to fit the cache size
 
-static inline void JacobianCore(Mat& dMdp,
-                                Mat& G,
-                                Mat& J,
-                                Mat& H,
+static inline void JacobianCore(cv::Mat& dMdp,
+                                cv::Mat& G,
+                                cv::Mat& J,
+                                cv::Mat& H,
                                 int numParams)
 {
     //tmp=M*G;
@@ -408,26 +407,26 @@ static inline void JacobianCore(Mat& dMdp,
     H+=J*J.t();//add to the hessian accumulator TODO: this might need to be increased to hold things as doubles
 }
 
-static inline void solveJacobian(Mat& dMdp,
-                          Mat& G,
-                          Mat& J,
-                          Mat& err,
-                          Mat& p,
+static inline void solveJacobian(cv::Mat& dMdp,
+                          cv::Mat& G,
+                          cv::Mat& J,
+                          cv::Mat& err,
+                          cv::Mat& p,
                           int numParams)
 {
     int c=dMdp.cols;
     int nb=c/BSZ;
-    Mat H(numParams,numParams,CV_64FC1);
+    cv::Mat H(numParams,numParams,CV_64FC1);
     H=0.0;
     for (int i=0;i<nb;i++){
         int offset = i*BSZ;
-        Mat _dMdp=dMdp.colRange(Range(offset,offset+BSZ));
-        Mat _G=G.colRange(Range(offset,offset+BSZ));
-        Mat _J=J.colRange(Range(offset,offset+BSZ));
+        cv::Mat _dMdp=dMdp.colRange(cv::Range(offset,offset+BSZ));
+        cv::Mat _G=G.colRange(cv::Range(offset,offset+BSZ));
+        cv::Mat _J=J.colRange(cv::Range(offset,offset+BSZ));
         JacobianCore(_dMdp, _G, _J, H, numParams);
     }
-    cout<<"Summed Hessian: "<<H<<endl;
-    cout<<"Recalculated Hessian: "<<J*J.t()<<endl;
+    std::cout<<"Summed Hessian: "<<H<<std::endl;
+    std::cout<<"Recalculated Hessian: "<<J*J.t()<<std::endl;
     // Now J has been filled out and H is complete
     p+=H.inv()*(J*err);
 }
@@ -440,8 +439,8 @@ static inline void solveJacobian(Mat& dMdp,
 
     
 
-void ESMStep(const Mat& gradMTI,//2ch * N cols
-             const Mat& dMdp,//2ch * 3 rows * N cols
+void ESMStep(const cv::Mat& gradMTI,//2ch * N cols
+             const cv::Mat& dMdp,//2ch * 3 rows * N cols
              double* p,
              double* maxStep//maximum rotation
              )
@@ -450,23 +449,23 @@ void ESMStep(const Mat& gradMTI,//2ch * N cols
     
 }
 
-// void getJacobianPiece(Mat idMap, Mat xyin, Mat p, Mat Jpiece){
-//     Mat dR=rodrigues(p(0,Range(0,3)));
-//     Mat dT=p(0,Range(3,6));
-//     Mat dA;
+// void getJacobianPiece(cv::Mat idMap, cv::Mat xyin, cv::Mat p, cv::Mat Jpiece){
+//     cv::Mat dR=rodrigues(p(0,cv::Range(0,3)));
+//     cv::Mat dT=p(0,cv::Range(3,6));
+//     cv::Mat dA;
 //     hconcat(dR,dT,dA);
 //     dA=make4x4(dA);
 //     
-//     Mat proj=cameraMatrix*dA*cameraMatrix.inv();
+//     cv::Mat proj=cameraMatrix*dA*cameraMatrix.inv();
 //     //The column swap
-//     Mat tmp=proj.colRange(2,4).clone();
+//     cv::Mat tmp=proj.colRange(2,4).clone();
 //     tmp.col(1).copyTo(proj.col(2));
 //     tmp.col(0).copyTo(proj.col(3));
 //     //The row drop
 //     proj=proj.rowRange(0,3).clone();
 //     
 //     
-//     Mat_<Vec2f> xyout(rows,cols);
+//     cv::Mat_<Vec2f> xyout(rows,cols);
 //     perspectiveTransform(xyin,xyout,proj);//xyout is a two channel x,y map
 //     
 //     // convert to single channel stacked array type map
@@ -474,7 +473,7 @@ void ESMStep(const Mat& gradMTI,//2ch * N cols
 //     
 // }
 // //Returns (J'*J)^-1
-// void getHessian(Mat J,Mat H){
+// void getHessian(cv::Mat J,cv::Mat H){
 //     H=(J.t()*J).inv();
 // }
 
@@ -489,8 +488,8 @@ void ESMStep(const Mat& gradMTI,//2ch * N cols
 //     
 //     
 //     // build the identitiy map
-//     Mat_<Vec3f> idMap3(rows,cols);
-//     Mat_<Vec2f> idMap2(rows,cols);
+//     cv::Mat_<Vec3f> idMap3(rows,cols);
+//     cv::Mat_<Vec2f> idMap2(rows,cols);
 //     float* id3=(float*) (idMap3.data);
 //     float* id2=(float*) (idMap2.data);
 //     float* dp=(float*) (d.data);
@@ -505,15 +504,15 @@ void ESMStep(const Mat& gradMTI,//2ch * N cols
 //         }
 //     }
 //     
-//     Mat_<Vec2f> outmap(rows,cols);
-//     vector<Mat> dMapdp[numParams]
+//     cv::Mat_<Vec2f> outmap(rows,cols);
+//     std::vector<cv::Mat> dMapdp[numParams]
 //     for (int i=0; i<numParams; i++) {
 //         //Build the incremented transform
-//         Mat_<double> p_plus_dp=p.clone();
+//         cv::Mat_<double> p_plus_dp=p.clone();
 //         p_plus_dp(0,i)+=small;
-//         Mat dR=rodrigues(p(0,Range(0,3)));
-//         Mat dT=p(0,Range(3,6));
-//         Mat dA;
+//         cv::Mat dR=rodrigues(p(0,cv::Range(0,3)));
+//         cv::Mat dT=p(0,cv::Range(3,6));
+//         cv::Mat dA;
 //         hconcat(dR,dT,dA);
 //         dA=make4x4(dA);
 //         proj=cameraMatrix*dA*cameraMatrix.inv();
@@ -525,9 +524,9 @@ void ESMStep(const Mat& gradMTI,//2ch * N cols
 //     }
 // 
 //     
-//     Mat dR=rodrigues(p(0,Range(0,3)));
-//     Mat dT=p(0,Range(3,6));
-//     Mat dA;
+//     cv::Mat dR=rodrigues(p(0,cv::Range(0,3)));
+//     cv::Mat dT=p(0,cv::Range(3,6));
+//     cv::Mat dA;
 //     hconcat(dR,dT,dA);
 //     dA=make4x4(dA);
 //     

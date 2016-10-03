@@ -4,9 +4,8 @@
  *
  *
  */
+#include <iostream>
 #include <opencv2/opencv.hpp>
-using namespace cv;
-using namespace std;
 #include "utils/utils.hpp"
 #include "graphics.hpp"
 #include "Track.hpp"
@@ -25,35 +24,35 @@ const static float FAIL_FRACTION=0.70;
 enum alignment_modes{CV_DTAM_REV,CV_DTAM_FWD,CV_DTAM_ESM};
 const double small0=.1;//~6deg, not trivial, but hopefully enough to make the translation matter
 
-static void getGradient(const Mat& image,Mat & grad);
+static void getGradient(const cv::Mat& image,cv::Mat & grad);
 
 
 
 
-//Mat& reprojectWithDepth(const Mat& T,
-//                        const Mat& d,
-//                        const Mat& I,
-//                        const Mat& cameraMatrix,//Mat_<double>
-//                        const Mat& _p,          //Mat_<double>
+//cv::Mat& reprojectWithDepth(const cv::Mat& T,
+//                        const cv::Mat& d,
+//                        const cv::Mat& I,
+//                        const cv::Mat& cameraMatrix,//cv::Mat_<double>
+//                        const cv::Mat& _p,          //cv::Mat_<double>
 //                        int mode){
 //
 //}
 
-static Mat paramsToProjection(const Mat & p,const Mat& _cameraMatrix){
+static cv::Mat paramsToProjection(const cv::Mat & p,const cv::Mat& _cameraMatrix){
     //Build the base transform
     assert(p.type()==CV_64FC1);
-    Mat dR=rodrigues(p.colRange(Range(0,3)));
-    Mat dT=p.colRange(Range(3,6)).t();
-    Mat dA;
+    cv::Mat dR=rodrigues(p.colRange(cv::Range(0,3)));
+    cv::Mat dT=p.colRange(cv::Range(3,6)).t();
+    cv::Mat dA;
     hconcat(dR,dT,dA);
     dA=make4x4(dA);
-    Mat cameraMatrix=make4x4(_cameraMatrix);
+    cv::Mat cameraMatrix=make4x4(_cameraMatrix);
     assert(cameraMatrix.type()==CV_64FC1);
-    Mat proj=cameraMatrix*dA*cameraMatrix.inv();
-//     cout<<"p: "<<"\n"<< p<< endl;
-//     cout<<"Proj: "<<"\n"<< proj<< endl;
+    cv::Mat proj=cameraMatrix*dA*cameraMatrix.inv();
+//     std::cout<<"p: "<<"\n"<< p<< std::endl;
+//     std::cout<<"Proj: "<<"\n"<< proj<< std::endl;
     //The column swap
-    Mat tmp=proj.colRange(2,4).clone();
+    cv::Mat tmp=proj.colRange(2,4).clone();
     tmp.col(1).copyTo(proj.col(2));
     tmp.col(0).copyTo(proj.col(3));
     //The row drop
@@ -61,87 +60,87 @@ static Mat paramsToProjection(const Mat & p,const Mat& _cameraMatrix){
     return proj;
 }
 
-static void getGradient(const Mat& image,Mat & grad){
+static void getGradient(const cv::Mat& image,cv::Mat & grad){
     //Image gradients for alignment
     //Note that these gradients have theoretical problems under the sudden 
     // changes model of images. It might be wise to blur the images before 
     // alignment, to avoid sudden changes, but that makes occlusion more 
     // problematic.
     grad.create(2,image.rows*image.cols,CV_32FC1);
-    Mat gray;
+    cv::Mat gray;
     if (image.type()==CV_32FC1) {
         gray=image;
     }else {
-        cvtColor(image, gray, CV_BGR2GRAY);
+        cv::cvtColor(image, gray, CV_BGR2GRAY);
         gray.convertTo(gray,CV_32FC1);
     }
-    Mat grad_x(image.rows,image.cols,CV_32FC1,grad.row(0).data);
-    Scharr( gray, grad_x, CV_32FC1, 1, 0, 1.0/26.0, 0, BORDER_REPLICATE );
-    Mat grad_y(image.rows,image.cols,CV_32FC1,grad.row(1).data);
-    Scharr( gray, grad_y, CV_32FC1, 0, 1, 1.0/26.0, 0, BORDER_REPLICATE);
+    cv::Mat grad_x(image.rows,image.cols,CV_32FC1,grad.row(0).data);
+    Scharr( gray, grad_x, CV_32FC1, 1, 0, 1.0/26.0, 0, cv::BORDER_REPLICATE );
+    cv::Mat grad_y(image.rows,image.cols,CV_32FC1,grad.row(1).data);
+    Scharr( gray, grad_y, CV_32FC1, 0, 1, 1.0/26.0, 0, cv::BORDER_REPLICATE);
 }
 
-static void getGradient_8(const Mat& image,Mat & grad){
+static void getGradient_8(const cv::Mat& image,cv::Mat & grad){
     //Image gradients for alignment
     //Note that these gradients have theoretical problems under the sudden 
     // changes model of images. It might be wise to blur the images before 
     // alignment, to avoid sudden changes, but that makes occlusion more 
     // problematic.
     grad.create(2,image.rows*image.cols,CV_32FC1);
-    Mat gray;
+    cv::Mat gray;
     if (image.type()==CV_32FC1) {
         gray=image;
     }else {
-        cvtColor(image, gray, CV_BGR2GRAY);
+        cv::cvtColor(image, gray, CV_BGR2GRAY);
         gray.convertTo(gray,CV_32FC1);
     }
-    Mat grad_x(image.rows,image.cols,CV_32FC1,grad.row(0).data);
-    Scharr( gray, grad_x, CV_32FC1, 1, 0, 1.0/26.0, 0, BORDER_REPLICATE );
-    Mat grad_y(image.rows,image.cols,CV_32FC1,grad.row(1).data);
-    Scharr( gray, grad_y, CV_32FC1, 0, 1, 1.0/26.0, 0, BORDER_REPLICATE);
+    cv::Mat grad_x(image.rows,image.cols,CV_32FC1,grad.row(0).data);
+    cv::Scharr( gray, grad_x, CV_32FC1, 1, 0, 1.0/26.0, 0, cv::BORDER_REPLICATE );
+    cv::Mat grad_y(image.rows,image.cols,CV_32FC1,grad.row(1).data);
+    cv::Scharr( gray, grad_y, CV_32FC1, 0, 1, 1.0/26.0, 0, cv::BORDER_REPLICATE);
 }
 
-static void getGradientInterleave(const Mat& image,Mat & grad){
+static void getGradientInterleave(const cv::Mat& image,cv::Mat & grad){
     //Image gradients for alignment
     //Note that these gradients have theoretical problems under the sudden 
     // changes model of images. It might be wise to blur the images before 
     // alignment, to avoid sudden changes, but that makes occlusion more 
     // problematic.
     grad.create(2,image.rows*image.cols,CV_32FC1);
-    Mat gray;
+    cv::Mat gray;
     if (image.type()==CV_32FC1) {
         gray=image;
     }else {
-        cvtColor(image, gray, CV_BGR2GRAY);
+        cv::cvtColor(image, gray, CV_BGR2GRAY);
         gray.convertTo(gray,CV_32FC1);
     }
-    Mat gradX(image.rows,image.cols,CV_32FC1);
-    Scharr( gray, gradX, CV_32FC1, 1, 0, 1.0/26.0, 0, BORDER_REPLICATE );
-    Mat gradY(image.rows,image.cols,CV_32FC1);
-    Scharr( gray, gradY, CV_32FC1, 0, 1, 1.0/26.0, 0, BORDER_REPLICATE);
-    Mat src [2]={gradY,gradX};
-    merge(src,2,grad);
+    cv::Mat gradX(image.rows,image.cols,CV_32FC1);
+    Scharr( gray, gradX, CV_32FC1, 1, 0, 1.0/26.0, 0, cv::BORDER_REPLICATE );
+    cv::Mat gradY(image.rows,image.cols,CV_32FC1);
+    Scharr( gray, gradY, CV_32FC1, 0, 1, 1.0/26.0, 0, cv::BORDER_REPLICATE);
+    cv::Mat src [2]={gradY,gradX};
+    cv::merge(src,2,grad);
 }
 
-static void Mask(const Mat& in,const Mat& m,Mat& out){
-    Mat tmp;
+static void Mask(const cv::Mat& in,const cv::Mat& m,cv::Mat& out){
+    cv::Mat tmp;
     
     m.convertTo(tmp,in.type());
     out=in.mul(tmp/255);
 }
 
-int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 load/stores of image
-                          const Mat& d,
-                          const Mat& _I,
-                          const Mat& cameraMatrix,//Mat_<double>
-                          const Mat& _p,                //Mat_<double>
+int Track::align_level_largedef_gray_forward(const cv::Mat& T,//Total Mem cost ~185 load/stores of image
+                          const cv::Mat& d,
+                          const cv::Mat& _I,
+                          const cv::Mat& cameraMatrix,//cv::Mat_<double>
+                          const cv::Mat& _p,                //cv::Mat_<double>
                           int mode,
                           float threshold,
                           int numParams
                                       )
 {
-//     Mat result;
-//     matchTemplate( _I, T(Range(5,10),Range(5,15)), result, 0 );
+//     cv::Mat result;
+//     cv::matchTemplate( _I, T(cv::Range(5,10),cv::Range(5,15)), result, 0 );
 //     
 //     pfShow("soln",result);
     int ret=1;
@@ -151,7 +150,7 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     int cols=c;
     const float small=small0;
     //Build the in map (Mem cost 3 layer store:3)
-    Mat_<Vec3f> idMap3;
+    cv::Mat_<cv::Vec3f> idMap3;
     {
         idMap3.create(r,c);//[rows][cols][3]
         float* id3=(float*) (idMap3.data);
@@ -167,19 +166,19 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     }
     
     //Build the unincremented transform: (Mem cost 2 layer store,3 load :5)
-    Mat baseMap(rows,cols,CV_32FC2);
+    cv::Mat baseMap(rows,cols,CV_32FC2);
     {
-        Mat tmp=_p.clone();
-        Mat baseProj=paramsToProjection(_p,cameraMatrix);
-        perspectiveTransform(idMap3,baseMap,baseProj);
+        cv::Mat tmp=_p.clone();
+        cv::Mat baseProj=paramsToProjection(_p,cameraMatrix);
+        cv::perspectiveTransform(idMap3,baseMap,baseProj);
         assert(baseMap.type()==CV_32FC2);
     }
     
     {
         //do z buffered occlusion test(approximate depth with original depth)
-        Mat xy;
+        cv::Mat xy;
         baseMap.convertTo(xy,CV_32SC2);
-        Mat_<float> zmap(r,c,-1.0/0.0);
+        cv::Mat_<float> zmap(r,c,-1.0/0.0);
         int* xyd=(int *)(xy.data);
         float* dp=(float*) (d.data);
         float* bp=(float*) (baseMap.data);
@@ -217,38 +216,38 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     
     
     // reproject the gradient and image at the same time (Mem cost >= 24)
-    Mat gradI;
-    Mat I(r,c,CV_32FC1);
+    cv::Mat gradI;
+    cv::Mat I(r,c,CV_32FC1);
     {
         getGradient(_I,gradI); //(Mem cost: min 2 load, 2 store :4)
-        Mat toMerge[3]={_I,
-                        Mat(r,c,CV_32FC1,(float*)gradI.data),
-                        Mat(r,c,CV_32FC1,((float*)gradI.data)+r*c)};
-        Mat packed;
-        merge(toMerge,3,packed); //(Mem cost: min 3 load, 3 store :6)
-        Mat pulledBack;
+        cv::Mat toMerge[3]={_I,
+                        cv::Mat(r,c,CV_32FC1,(float*)gradI.data),
+                        cv::Mat(r,c,CV_32FC1,((float*)gradI.data)+r*c)};
+        cv::Mat packed;
+        cv::merge(toMerge,3,packed); //(Mem cost: min 3 load, 3 store :6)
+        cv::Mat pulledBack;
         
-        remap( packed, pulledBack, baseMap,Mat(), CV_INTER_LINEAR, BORDER_CONSTANT,0.0 );//(Mem cost:?? 5load, 3 store:8)
+        remap( packed, pulledBack, baseMap,cv::Mat(), CV_INTER_LINEAR, cv::BORDER_CONSTANT,0.0 );//(Mem cost:?? 5load, 3 store:8)
         gradI.create(r,c,CV_32FC2);
 
         int from_to[] = { 0,0, 1,1, 2,2 };
-        Mat src[1]=pulledBack;
-        Mat dst[2]={I,gradI};
+        cv::Mat src[1]=pulledBack;
+        cv::Mat dst[2]={I,gradI};
         
-        mixChannels(src,1,dst,2,from_to,3);// extract the image and the resampled gradient //(Mem cost: min 3 load, 3 store :6)
+        cv::mixChannels(src,1,dst,2,from_to,3);// extract the image and the resampled gradient //(Mem cost: min 3 load, 3 store :6)
     }
     
     // Calculate the differences and build mask for operations (Mem cost ~ 8)
-    Mat fit;
-    absdiff(T,I,fit);
-    Mat mask=(fit<threshold)&(I>0);
-    Mat mask2=(I>0);
+    cv::Mat fit;
+    cv::absdiff(T,I,fit);
+    cv::Mat mask=(fit<threshold)&(I>0);
+    cv::Mat mask2=(I>0);
     double vis=cv::countNonZero(mask2)/(rows*cols*1.0f);
     double good=cv::countNonZero(mask)/(rows*cols*1.0f);
     double qual=good/vis;
     if(verbose){
-    cout<<"Visibility: "<<vis;
-    cout<<" Accepted: "<<good<<" Quality: "<<qual<<" r: "<<rows<<endl;
+    std::cout<<"Visibility: "<<vis;
+    std::cout<<" Accepted: "<<good<<" Quality: "<<qual<<" r: "<<rows<<std::endl;
     }
     coverage=vis;
     quality=qual;
@@ -256,17 +255,17 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
         ret=0;
     }
     
-    Mat err=T-I;
+    cv::Mat err=T-I;
     
     //debug
     if (verbose){
 
-        pfShow("Before iteration",_I,0,Vec2d(0,1));
-        pfShow("After Iteration",I,0,Vec2d(0,1));
-        Mat tmp;
+        pfShow("Before iteration",_I,0,cv::Vec2d(0,1));
+        pfShow("After Iteration",I,0,cv::Vec2d(0,1));
+        cv::Mat tmp;
         Mask(I,fit<threshold,tmp);
-        pfShow("Tracking Stabilized With Occlusion",tmp,0,Vec2d(0,1));
-        pfShow("To match",T,0,Vec2d(0,1));
+        pfShow("Tracking Stabilized With Occlusion",tmp,0,cv::Vec2d(0,1));
+        pfShow("To match",T,0,cv::Vec2d(0,1));
         gpause();
     }
 
@@ -276,10 +275,10 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     
     
     // Build Jacobians:
-    Mat Jsmall;
+    cv::Mat Jsmall;
     Jsmall.create(numParams,rows*cols,CV_32FC1);
     int OM_OFFSET=0;//128;//offset helps keep cache from being clobbered by load/stores
-    Mat outContainer;
+    cv::Mat outContainer;
     outContainer.create(numParams,rows*cols*2+OM_OFFSET,CV_32FC1);
     
     //TODO: Whole loop cacheable except J multiplies if CV_DTAM_REV (Mem cost whole loop 17/itr: 102)
@@ -289,12 +288,12 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
         
         //Build the incremented transform
         assert(_p.type()==CV_64FC1);
-        Mat_<double> p=_p.clone();
+        cv::Mat_<double> p=_p.clone();
         p(0,paramNum)+=small;
-        Mat proj=paramsToProjection(p,cameraMatrix);
+        cv::Mat proj=paramsToProjection(p,cameraMatrix);
         
         //get a row of dmap/dp
-        Mat outMap(rows,cols,CV_32FC2,((float*)outContainer.data)+rows*cols*2*paramNum+OM_OFFSET);
+        cv::Mat outMap(rows,cols,CV_32FC2,((float*)outContainer.data)+rows*cols*2*paramNum+OM_OFFSET);
         
         perspectiveTransform(idMap3,outMap,proj);//outmap=baseMap+dMap/dp*small (Mem cost 5)
         
@@ -302,8 +301,8 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
         //subtract off the base to make a differential  (Mem cost 6)
         //this cannot be done below in the J loop because it would need 5 pointers
         // which is bad for cache (4-way set associative)
-//         Mat t1,t2;
-//         Mat tmp[2]={t1,t2};
+//         cv::Mat t1,t2;
+//         cv::Mat tmp[2]={t1,t2};
 //         split(outMap,tmp);
 //         char s[500];
 //         sprintf(s,"diff0:%d",paramNum);
@@ -317,7 +316,7 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
         
         
         //want:J*small=dI/dMap*dMap/dp*small
-        //do: Jsmall=sumChannels((outmap-idMap2).mul(merge(gradient[0],gradient[1])))
+        //do: Jsmall=sumChannels((outmap-idMap2).mul(cv::merge(gradient[0],gradient[1])))
         const float * om=(const float*) (outMap.data);
         const float * bm=(const float*) (baseMap.data);
         const float * gi=(const float*) (gradI.data);
@@ -340,18 +339,18 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     //now want: dp=(J'J)^-1*J'*(T-I)
     //          dp=small*(Jsmall*Jsmall')^-1*Jsmall*(T-I) since Jsmall is already transposed
     //          dp=small*Hsmallsmall^-1*Jsmall*(T-I)
-    Mat Hss=Jsmall*Jsmall.t(); //Hessian (numParams^2) (Mem cost 6-36 depending on cache)
+    cv::Mat Hss=Jsmall*Jsmall.t(); //Hessian (numParams^2) (Mem cost 6-36 depending on cache)
     Hss.convertTo(Hss,CV_64FC1);
-    Mat Hinv=small*Hss.inv(DECOMP_SVD);  //TODO:cacheable for CV_DTAM_REV 
+    cv::Mat Hinv=small*Hss.inv(cv::DECOMP_SVD);  //TODO:cacheable for CV_DTAM_REV 
     Hinv.convertTo(Hinv,CV_32FC1);
     err=err.reshape(0,r*c);
 
-    Mat dp=(Hinv*(Jsmall*err)).t();//transpose because we decided that p is row vector (Mem cost 7)
+    cv::Mat dp=(Hinv*(Jsmall*err)).t();//transpose because we decided that p is row vector (Mem cost 7)
     dp.convertTo(dp,CV_64FC1);
-//     cout<<"Je: \n"<<Jsmall*err<<endl;
-//     cout<<"H: "<<"\n"<< Hss<< endl;
-//     cout<<"Hinv: "<<"\n"<< Hinv<< endl;
-//     cout<<"dp: "<<"\n"<< dp<< endl;
+//     std::cout<<"Je: \n"<<Jsmall*err<<std::endl;
+//     std::cout<<"H: "<<"\n"<< Hss<< std::endl;
+//     std::cout<<"Hinv: "<<"\n"<< Hinv<< std::endl;
+//     std::cout<<"dp: "<<"\n"<< dp<< std::endl;
     
     
     //Check amount of motion
@@ -362,22 +361,22 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     //Check error
     //For the pixels that are within threshold, the average error should go down (Expensive!)
 //     {
-//         Mat tmp=_p.clone();
+//         cv::Mat tmp=_p.clone();
 //         tmp.colRange(0,numParams)+=dp;
-//         Mat newMap,newBack;
-//         Mat newProj=paramsToProjection(tmp,cameraMatrix);
+//         cv::Mat newMap,newBack;
+//         cv::Mat newProj=paramsToProjection(tmp,cameraMatrix);
 //         perspectiveTransform(idMap3,newMap,newProj);
-//         remap( _I, newBack, newMap, Mat(), CV_INTER_LINEAR, BORDER_CONSTANT,-1.0/0.0 );
-//         Mat newFit;
+//         remap( _I, newBack, newMap, cv::Mat(), CV_INTER_LINEAR, cv::BORDER_CONSTANT,-1.0/0.0 );
+//         cv::Mat newFit;
 //         absdiff(T,newBack,newFit);
-//         Mat fitDiff;
+//         cv::Mat fitDiff;
 //         subtract(fit,newFit,fitDiff,mask & (newBack>0));
 //         double deltaErr=sum(fitDiff)[0];
-//         cout<<"Delta Err: "<< deltaErr<<endl;
+//         std::cout<<"Delta Err: "<< deltaErr<<std::endl;
 //         if (deltaErr<0)
 //             return false;
 //     }
-    Mat tmp=_p.clone()*0;
+    cv::Mat tmp=_p.clone()*0;
     tmp.colRange(0,numParams)+=dp;
     dp=tmp.clone();
     float dmax=.5;//assume ~1 radian field of view
@@ -385,7 +384,7 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     tmp.colRange(3,6)*=.01;
     double max;
     tmp=tmp*cameraMatrix.at<double>(0,0);
-//     cout<<fixed<<setprecision(8)<<"bound: "<<tmp<<endl;
+//     std::cout<<fixed<<setprecision(8)<<"bound: "<<tmp<<std::endl;
     minMaxLoc(abs(tmp),NULL,&max);
     if(max>dmax){
         dp/=max/dmax;
@@ -397,7 +396,7 @@ int Track::align_level_largedef_gray_forward(const Mat& T,//Total Mem cost ~185 
     
     tmp.colRange(3,6)*=.01;
     tmp=tmp*cameraMatrix.at<double>(0,0);
-//     cout<<fixed<<setprecision(8)<<"bound: "<<tmp<<endl;
+//     std::cout<<fixed<<setprecision(8)<<"bound: "<<tmp<<std::endl;
     
     _p+=dp;
     
